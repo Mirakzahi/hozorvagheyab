@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>مدیریت - حضور و غیاب</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="p-4">
+  <div class="container">
+    <h1>پنل مدیریت (نیاز به احراز هویت دارد)</h1>
+    <p>برای دسترسی به این صفحه، مرورگر پنجرهٔ احراز هویت را نشان می‌دهد. نام کاربری: <code>admin</code> و رمز همان چیزی است که در متغیر محیطی ADMIN_PASSWORD قرار می‌دهی.</p>
+
+    <div>
+      <button id="load" class="btn btn-primary mb-2">بارگذاری ثبت‌ها</button>
+      <table class="table" id="tbl">
+        <thead><tr><th>#</th><th>نام</th><th>کد</th><th>نوع</th><th>زمان</th><th>یادداشت</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+document.getElementById('load').addEventListener('click', async ()=>{
+  const res = await fetch('/admin-api/attendance');
+  if (!res.ok) { alert('خطا در بارگذاری'); return; }
+  const rows = await res.json();
+  const tbody = document.querySelector('#tbl tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.id}</td><td>${r.name}</td><td>${r.employee_code}</td><td>${r.type}</td><td>${r.timestamp}</td><td>${r.note||''}</td>
+      <td><button class="btn btn-sm btn-danger" data-id="${r.id}">حذف</button></td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button').forEach(b=>{
+    b.onclick = async ()=> {
+      if (!confirm('حذف؟')) return;
+      const id = b.dataset.id;
+      const d = await fetch('/admin-api/attendance/'+id, { method: 'DELETE' });
+      const r = await d.json();
+      if (r.deleted) b.closest('tr').remove();
+    }
+  });
+});
+</script>
+</body>
+</html>
