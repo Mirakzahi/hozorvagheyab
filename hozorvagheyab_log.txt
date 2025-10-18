@@ -1,0 +1,72 @@
+# ----------------------------
+# 🚀 پروژه حضور و غیاب - اجرای لوکال + Commit/Push خودکار
+# ----------------------------
+
+$projectPath = "D:\hozorvagheyab\hozorvagheyab"
+$logFile = "$projectPath\hozorvagheyab_log.txt"
+
+# 1️⃣ بررسی مسیر پروژه
+if (-Not (Test-Path $projectPath)) {
+    Write-Host "❌ مسیر پروژه یافت نشد: $projectPath" -ForegroundColor Red
+    exit
+} else {
+    cd $projectPath
+    Write-Host "📂 مسیر پروژه: $(Get-Location)" -ForegroundColor Green
+}
+
+# 2️⃣ نصب وابستگی‌ها
+if (-Not (Test-Path "node_modules")) {
+    Write-Host "📦 نصب وابستگی‌ها..."
+    npm install 2>&1 | Tee-Object -FilePath $logFile
+} else { Write-Host "✅ وابستگی‌ها قبلاً نصب شده‌اند." }
+
+# 3️⃣ بررسی یا ساخت فایل .env
+if (-Not (Test-Path ".env")) {
+    New-Item .env -ItemType File | Out-Null
+    Add-Content .env "PORT=3000"
+    Add-Content .env "ADMIN_PASSWORD=یک_پسورد_قوی"
+    Write-Host "⚠️ فایل .env ساخته شد. لطفاً پسورد ادمین را تغییر بده." -ForegroundColor Yellow
+} else { Write-Host "✅ فایل .env از قبل موجود است." }
+
+# 4️⃣ تغییر شاخه Git به main
+git branch -M main 2>&1 | Tee-Object -Append -FilePath $logFile
+
+# 5️⃣ گرفتن GitHub Token امن
+$token = Read-Host -Prompt "🔑 لطفاً GitHub Personal Access Token خود را وارد کنید" -AsSecureString
+$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($token)
+$plainToken = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+$remoteUrl = "https://Mirakzahi:$plainToken@github.com/Mirakzahi/hozorvagheyab.git"
+git remote set-url origin $remoteUrl 2>&1 | Tee-Object -Append -FilePath $logFile
+
+# 6️⃣ اجرای پروژه در ترمینال جدید
+Write-Host "🚀 اجرای پروژه..."
+Start-Process powershell -ArgumentList "npm start" -NoNewWindow
+
+# 7️⃣ باز کردن مرورگر
+Start-Sleep -Seconds 5
+Start-Process "http://localhost:3000"
+Start-Process "http://localhost:3000/admin.html"
+
+# 8️⃣ تنظیم Watcher برای commit/push خودکار
+Write-Host "🔄 مانیتور کردن تغییرات و commit/push خودکار..."
+$fsw = New-Object System.IO.FileSystemWatcher $projectPath -Property @{
+    IncludeSubdirectories = $true
+    NotifyFilter = [System.IO.NotifyFilters]'FileName, LastWrite, DirectoryName'
+    Filter = "*.*"
+}
+
+Register-ObjectEvent $fsw Changed -SourceIdentifier FileChanged -Action {
+    Start-Sleep -Milliseconds 500
+    git add . 2>&1 | Tee-Object -Append -FilePath $logFile
+    $status = git status --porcelain
+    if ($status) {
+        $commitMessage = "Auto commit - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+        git commit -m "$commitMessage" 2>&1 | Tee-Object -Append -FilePath $logFile
+        git push origin main 2>&1 | Tee-Object -Append -FilePath $logFile
+        Write-Host "✅ تغییرات خودکار push شد: $commitMessage" -ForegroundColor Green
+    }
+}
+
+Write-Host "✅ پروژه در حال اجرا و تغییرات خودکار به GitHub push می‌شوند."
+Write-Host "🔹 لاگ‌ها در فایل: $logFile"
+Write-Host "⏳ برای پایان مانیتور، PowerShell را ببندید."
